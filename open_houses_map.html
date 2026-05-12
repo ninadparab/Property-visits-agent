@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_980321be90690fbbef5b872ba1feffcc {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_980321be90690fbbef5b872ba1feffcc" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_980321be90690fbbef5b872ba1feffcc = L.map(
+                "map_980321be90690fbbef5b872ba1feffcc",
+                {
+                    center: [47.70996273333333, -122.15785333333334],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 12,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_6c4ae7d52848b861ddf0ee9559bf1752 = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 20,
+  "maxNativeZoom": 20,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors \u0026copy; \u003ca href=\"https://carto.com/attributions\"\u003eCARTO\u003c/a\u003e",
+  "subdomains": "abcd",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_6c4ae7d52848b861ddf0ee9559bf1752.addTo(map_980321be90690fbbef5b872ba1feffcc);
+        
+    
+            var marker_01069d1afb460242c1ec713724597175 = L.marker(
+                [47.7101754, -122.157705],
+                {
+}
+            ).addTo(map_980321be90690fbbef5b872ba1feffcc);
+        
+    
+            var icon_50e92513e5288ebdc9147f507e42f22b = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "home",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_f63bdc88b7436c923ec3dd1577dd3364 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_10c98c6fcfbcb384a889890e956363e7 = $(`<div id="html_10c98c6fcfbcb384a889890e956363e7" style="width: 100.0%; height: 100.0%;">             <b>12255 138th Pl NE Unit 17-102</b><br>             Redmond, WA 98052.0<br><br>             <b>Price:</b> $1,314,900<br>             <b>Beds/Baths:</b> 4.0 bd / 3.5 ba<br>             <b>Sqft:</b> 2188.0<br>             <b>Year Built:</b> 2026.0<br>             <b>Open House:</b> nan<br><br>             <a href="https://www.redfin.com/WA/Redmond/12255-138th-Pl-NE-98052/unit-17-102/home/201708205" target="_blank">View on Redfin →</a>         </div>`)[0];
+                popup_f63bdc88b7436c923ec3dd1577dd3364.setContent(html_10c98c6fcfbcb384a889890e956363e7);
+            
+        
+
+        marker_01069d1afb460242c1ec713724597175.bindPopup(popup_f63bdc88b7436c923ec3dd1577dd3364)
+        ;
+
+        
+    
+    
+            marker_01069d1afb460242c1ec713724597175.bindTooltip(
+                `<div>
+                     12255 138th Pl NE Unit 17-102 — $1,314,900
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_01069d1afb460242c1ec713724597175.setIcon(icon_50e92513e5288ebdc9147f507e42f22b);
+            
+    
+            var marker_ea92b0fe2abcc0971cbe7a2433d6ad2f = L.marker(
+                [47.7101754, -122.157705],
+                {
+}
+            ).addTo(map_980321be90690fbbef5b872ba1feffcc);
+        
+    
+            var icon_0cf2957fd79fe5df6f2aec51bce63d7f = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "home",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_f8a4db3892d8afb10c932d586ea4fb59 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_3517e5a08e21817a78c7564da7140ee3 = $(`<div id="html_3517e5a08e21817a78c7564da7140ee3" style="width: 100.0%; height: 100.0%;">             <b>12255 138th Pl NE Unit 17-101</b><br>             Redmond, WA 98052.0<br><br>             <b>Price:</b> $1,397,000<br>             <b>Beds/Baths:</b> 4.0 bd / 3.5 ba<br>             <b>Sqft:</b> 2281.0<br>             <b>Year Built:</b> 2026.0<br>             <b>Open House:</b> nan<br><br>             <a href="https://www.redfin.com/WA/Redmond/12255-138th-Pl-NE-98052/unit-17-101/home/201708198" target="_blank">View on Redfin →</a>         </div>`)[0];
+                popup_f8a4db3892d8afb10c932d586ea4fb59.setContent(html_3517e5a08e21817a78c7564da7140ee3);
+            
+        
+
+        marker_ea92b0fe2abcc0971cbe7a2433d6ad2f.bindPopup(popup_f8a4db3892d8afb10c932d586ea4fb59)
+        ;
+
+        
+    
+    
+            marker_ea92b0fe2abcc0971cbe7a2433d6ad2f.bindTooltip(
+                `<div>
+                     12255 138th Pl NE Unit 17-101 — $1,397,000
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_ea92b0fe2abcc0971cbe7a2433d6ad2f.setIcon(icon_0cf2957fd79fe5df6f2aec51bce63d7f);
+            
+    
+            var marker_33f8e160ecdfa013ad3b34e4b521277a = L.marker(
+                [47.7095374, -122.15815],
+                {
+}
+            ).addTo(map_980321be90690fbbef5b872ba1feffcc);
+        
+    
+            var icon_6ff604d138108a158396d87af7d32dd0 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "home",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_fffcd13a8e0ede05cdfcfa475ccd7b74 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_4f9ead73a3a5347c715ea21a51d43fca = $(`<div id="html_4f9ead73a3a5347c715ea21a51d43fca" style="width: 100.0%; height: 100.0%;">             <b>12201 137th Pl NE Unit 25-102</b><br>             Redmond, WA 98052.0<br><br>             <b>Price:</b> $1,199,900<br>             <b>Beds/Baths:</b> 4.0 bd / 3.5 ba<br>             <b>Sqft:</b> 2053.0<br>             <b>Year Built:</b> 2026.0<br>             <b>Open House:</b> nan<br><br>             <a href="https://www.redfin.com/WA/Redmond/12201-137th-Pl-NE-98052/unit-25-102/home/200586138" target="_blank">View on Redfin →</a>         </div>`)[0];
+                popup_fffcd13a8e0ede05cdfcfa475ccd7b74.setContent(html_4f9ead73a3a5347c715ea21a51d43fca);
+            
+        
+
+        marker_33f8e160ecdfa013ad3b34e4b521277a.bindPopup(popup_fffcd13a8e0ede05cdfcfa475ccd7b74)
+        ;
+
+        
+    
+    
+            marker_33f8e160ecdfa013ad3b34e4b521277a.bindTooltip(
+                `<div>
+                     12201 137th Pl NE Unit 25-102 — $1,199,900
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_33f8e160ecdfa013ad3b34e4b521277a.setIcon(icon_6ff604d138108a158396d87af7d32dd0);
+            
+</script>
+</html>

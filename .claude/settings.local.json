@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import json,sys; nb=json.load\\(sys.stdin\\); [print\\(f'Cell {i}: type={c[\\\\\"cell_type\\\\\"]}, src={repr\\(chr\\(10\\).join\\(c[\\\\\"source\\\\\"]\\)[:200]\\)}'\\) for i,c in enumerate\\(nb['cells']\\)]\")"
+    ]
+  }
+}
