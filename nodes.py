@@ -171,10 +171,28 @@ def distance_node(state: AgentState) -> dict:
     """
     Calls build_travel_time_matrix.
     Reads:  user_location, open_houses, start_time
-    Writes: travel_matrix
+    Writes: open_houses (day-filtered), travel_matrix
     """
-    home = state["user_location"]
-    house_addresses = [_full_address(h) for h in state["open_houses"]]
+    home   = state["user_location"]
+    houses = list(state["open_houses"])
+
+    # Narrow candidates to the user's departure day when a specific date is given.
+    # This prevents the N×N matrix from ballooning when there are many weekend listings.
+    start_time_str = state.get("start_time")
+    if start_time_str:
+        try:
+            target_date = datetime.fromisoformat(start_time_str).date()
+            day_filtered = [
+                h for h in houses
+                if h.get("open_house_start")
+                and datetime.fromisoformat(h["open_house_start"]).date() == target_date
+            ]
+            if day_filtered:
+                houses = day_filtered
+        except (ValueError, TypeError):
+            pass  # unparseable start_time — keep all houses
+
+    house_addresses = [_full_address(h) for h in houses]
 
     # Home must be first so the scheduler can use it as the depot
     locations = [home] + house_addresses
@@ -191,7 +209,8 @@ def distance_node(state: AgentState) -> dict:
     if not matrix:
         return {"error": "Could not compute travel times", "next_step": "end"}
 
-    return {"travel_matrix": matrix, "next_step": "schedule"}
+    # Write filtered houses back so the scheduler sees the same candidate set
+    return {"open_houses": houses, "travel_matrix": matrix, "next_step": "schedule"}
 
 
 def scheduler_node(state: AgentState) -> dict:

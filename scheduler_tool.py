@@ -245,12 +245,16 @@ def schedule_open_house_visits(
                 else None
             )
 
+            def _fmt_time(dt: datetime, include_day: bool = False) -> str:
+                t = dt.strftime("%I:%M %p").lstrip("0")
+                return f"{dt.strftime('%a')} {t}" if include_day else t
+
             itinerary.append({
                 "order":                  len(itinerary) + 1,
                 "address":                c["address"],
-                "arrive_at":              arrive_dt.strftime("%I:%M %p").lstrip("0"),
-                "open_house_window":      f"{c['start'].strftime('%I:%M %p').lstrip('0')} - {c['end'].strftime('%I:%M %p').lstrip('0')}",
-                "depart_at":              depart_dt.strftime("%I:%M %p").lstrip("0"),
+                "arrive_at":              _fmt_time(arrive_dt, include_day=True),
+                "open_house_window":      f"{_fmt_time(c['start'], include_day=True)} - {_fmt_time(c['end'])}",
+                "depart_at":              _fmt_time(depart_dt),
                 "travel_to_next_minutes": travel_next,
             })
             visited.add(node)

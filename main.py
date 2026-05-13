@@ -54,16 +54,24 @@ def run_agent(user_message: str, thread_id: str = "1") -> dict:
 
 
 def _stream(inputs_or_cmd, config: dict) -> None:
-    """Stream graph events and print assistant messages as they arrive."""
-    for event in agent.stream(inputs_or_cmd, config, stream_mode="values"):
-        messages = event.get("messages", [])
-        if not messages:
-            continue
-        last = messages[-1]
-        content = last.get("content") if isinstance(last, dict) else getattr(last, "content", None)
-        role    = last.get("role")    if isinstance(last, dict) else getattr(last, "type",    None)
-        if content and role in ("assistant", "ai"):
-            print(f"\n{content}")
+    """Stream graph events, printing progress, errors and assistant messages."""
+    for chunk in agent.stream(inputs_or_cmd, config, stream_mode="updates"):
+        for node_name, update in chunk.items():
+            if node_name == "__interrupt__":
+                continue
+
+            print(f"  [{node_name}]", flush=True)
+
+            # Print any error this node produced
+            if update.get("error"):
+                print(f"  Error: {update['error']}")
+
+            # Print assistant message if output_node just ran
+            for msg in update.get("messages", []):
+                content = msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", None)
+                role    = msg.get("role")    if isinstance(msg, dict) else getattr(msg, "type",    None)
+                if content and role in ("assistant", "ai"):
+                    print(f"\n{content}")
 
 
 if __name__ == "__main__":

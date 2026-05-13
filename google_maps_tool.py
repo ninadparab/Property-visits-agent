@@ -9,6 +9,7 @@ API docs: https://developers.google.com/maps/documentation/distance-matrix
 """
 
 import os
+import time
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -17,6 +18,10 @@ from langchain_core.tools import tool
 
 load_dotenv()
 from typing import Literal
+
+# Google Maps Distance Matrix API limits per request
+_MAX_ORIGINS = 10
+_MAX_DESTS   = 10  # 10 × 10 = 100 elements — safe for free-tier accounts
 
 TravelMode = Literal["driving", "transit", "walking", "bicycling"]
 
@@ -97,6 +102,32 @@ def get_distance_matrix(
     return results
 
 
+def _get_distance_matrix_batched(
+    origins: list[str],
+    destinations: list[str],
+    mode: str,
+    departure_time: str | None,
+) -> list[dict]:
+    """
+    Call the Distance Matrix API in batches of _MAX_ORIGINS × _MAX_DESTS to
+    stay within the 100-element-per-request limit on free-tier accounts.
+    """
+    all_results: list[dict] = []
+    for i in range(0, len(origins), _MAX_ORIGINS):
+        orig_batch = origins[i : i + _MAX_ORIGINS]
+        for j in range(0, len(destinations), _MAX_DESTS):
+            dest_batch = destinations[j : j + _MAX_DESTS]
+            all_results.extend(
+                get_distance_matrix(orig_batch, dest_batch, mode, departure_time)
+            )
+            # Brief pause to avoid hitting per-second rate limits
+            if j + _MAX_DESTS < len(destinations):
+                time.sleep(0.1)
+        if i + _MAX_ORIGINS < len(origins):
+            time.sleep(0.1)
+    return all_results
+
+
 @tool
 def build_travel_time_matrix(
     locations: list[str],
@@ -110,6 +141,9 @@ def build_travel_time_matrix(
     before scheduling visits. Include the user's home address as the first entry
     in locations so the schedule can start from home.
 
+    Large location lists are automatically split into batches of 10 × 10 to
+    stay within the Google Maps API 100-element-per-request limit.
+
     Args:
         locations:      List of addresses — put the user's home address first,
                         followed by all open house addresses.
@@ -121,7 +155,7 @@ def build_travel_time_matrix(
         Dict with "ORIGIN -> DESTINATION" keys and seconds as values.
         Example: {"123 Main St -> 456 Oak Ave": 900, ...}
     """
-    pairs = get_distance_matrix(locations, locations, mode=mode, departure_time=departure_time)
+    pairs = _get_distance_matrix_batched(locations, locations, mode=mode, departure_time=departure_time)
     matrix: dict[str, int] = {}
     for p in pairs:
         if p["origin"] == p["destination"]:
