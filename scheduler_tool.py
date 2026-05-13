@@ -9,6 +9,7 @@ All open house nodes are optional — OR-Tools skips ones it cannot fit
 rather than declaring the whole problem infeasible.
 """
 
+from collections import defaultdict
 from datetime import datetime, timedelta
 
 from langchain_core.tools import tool
@@ -147,11 +148,15 @@ def schedule_open_house_visits(
     earliest = min(c["start"] for c in valid)
     ref_dt = datetime.fromisoformat(start_time) if start_time else earliest - timedelta(minutes=30)
 
+    # Horizon covers from ref_dt to the latest open house end, plus a buffer.
+    # Computed dynamically so multi-day schedules (Sat + Sun) are not cut off.
+    latest_end = max(c["end"] for c in valid)
+    horizon = int((latest_end - ref_dt).total_seconds() // 60) + 60
+
     # ── Nodes: 0 = home depot, 1..N = open houses ────────────────────────────
     addresses = [home_address] + [c["address"] for c in valid]
     n = len(addresses)
     visit_dur = visit_duration_minutes
-    horizon   = 24 * 60  # minutes — wide enough for a full day
 
     # Raw travel times in minutes (without service time)
     raw = [[0] * n for _ in range(n)]
@@ -194,11 +199,16 @@ def schedule_open_house_visits(
     for node, (tw_s, tw_e) in enumerate(time_windows):
         time_dim.CumulVar(manager.NodeToIndex(node)).SetRange(tw_s, tw_e)
 
-    # All open house nodes are optional — skipped ones incur a large penalty
-    # so the solver maximises visits without declaring the problem infeasible
+    # Group nodes by address so the same property with Sat + Sun open houses
+    # is visited at most once — OR-Tools picks whichever day fits better.
+    # Properties with a single time window get their own one-node disjunction.
+    addr_to_nodes: dict[str, list[int]] = defaultdict(list)
+    for node, c in enumerate(valid, start=1):
+        addr_to_nodes[c["address"]].append(node)
+
     penalty = 100_000
-    for node in range(1, n):
-        routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
+    for nodes in addr_to_nodes.values():
+        routing.AddDisjunction([manager.NodeToIndex(nd) for nd in nodes], penalty)
 
     params = pywrapcp.DefaultRoutingSearchParameters()
     params.first_solution_strategy = (
