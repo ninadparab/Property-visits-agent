@@ -9,11 +9,13 @@ class AgentState(TypedDict):
     # add_messages means append new messages, not overwrite
     messages: Annotated[list, add_messages]
 
-    # ── User Inputs ───────────────────────────────
+    # ── Raw natural language input ────────────────
+    raw_input: str              # "Find open houses in Redmond WA this Saturday..."
+
+    # ── User Inputs (populated by parse_node) ─────
     user_location: str          # "500 108th Ave NE, Bellevue WA"
     city: str                   # "Redmond"
     state: str                  # "WA"
-    region_id: str              # "14913"
     time_per_house: int         # minutes user wants at each house e.g. 30
     start_time: str             # "09:00"
     filters: dict               # {"min_beds": 3, "max_price": 1500000, ...}
