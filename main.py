@@ -4,8 +4,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from langgraph.types import Command
+from langgraph.checkpoint.memory import MemorySaver
 
-from graph import agent
+from graph import build_graph
+
+# Local runs need MemorySaver so interrupt() can persist state between pauses.
+# Studio imports graph.py directly and supplies its own checkpointer.
+agent = build_graph(checkpointer=MemorySaver())
 
 
 def run_agent(user_message: str, thread_id: str = "1") -> dict:

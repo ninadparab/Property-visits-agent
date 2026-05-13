@@ -1,7 +1,7 @@
 # agent/graph.py
 
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.base import BaseCheckpointSaver
 
 from state import AgentState
 from nodes import (
@@ -22,7 +22,7 @@ def _route(state: AgentState) -> str:
     return state.get("next_step", "end")
 
 
-def build_graph():
+def build_graph(checkpointer: BaseCheckpointSaver | None = None):
     graph = StateGraph(AgentState)
 
     # ── Nodes ─────────────────────────────────────────────────────────────────
@@ -82,8 +82,10 @@ def build_graph():
         "end":      END,
     })
 
-    # ── Compile with in-memory checkpointer (required for interrupt()) ─────────
-    return graph.compile(checkpointer=MemorySaver())
+    # Checkpointer is injected by the caller:
+    # - main.py passes MemorySaver() for local interrupt() support
+    # - Studio imports agent without one — it provides its own persistence
+    return graph.compile(checkpointer=checkpointer)
 
 
-agent = build_graph()
+agent = build_graph()  # no checkpointer — Studio supplies its own
