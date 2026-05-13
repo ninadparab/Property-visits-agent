@@ -3,29 +3,68 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+from langgraph.types import Command
+
 from graph import agent
 
 
-def run_agent(user_message: str) -> dict:
+def run_agent(user_message: str, thread_id: str = "1") -> dict:
+    """
+    Run the open house agent. Handles mid-flow interrupts (0 results → relax
+    filters) and multi-turn feedback (user modifies schedule after seeing it).
+
+    Each interrupt pauses the graph, prints a question, waits for user input,
+    then resumes. Type 'done' at the feedback prompt to exit.
+    """
+    config = {"configurable": {"thread_id": thread_id}}
+
     inputs = {
-        "messages":       [],
-        "raw_input":      user_message,
-        "open_houses":    [],
-        "travel_matrix":  {},
-        "schedules":      [],
-        "unschedulable":  [],
-        "error":          None,
-        "next_step":      None,
+        "messages":      [],
+        "raw_input":     user_message,
+        "open_houses":   [],
+        "travel_matrix": {},
+        "schedules":     [],
+        "unschedulable": [],
+        "error":         None,
+        "next_step":     None,
     }
-    return agent.invoke(inputs)
+
+    _stream(inputs, config)
+
+    # Loop until graph finishes (no pending nodes)
+    while True:
+        state = agent.get_state(config)
+        if not state.next:
+            break
+
+        # Surface the interrupt question to the user
+        for task in state.tasks:
+            for itr in task.interrupts:
+                print(f"\nAgent:\n{itr.value}")
+
+        user_input = input("\nYou: ").strip()
+        _stream(Command(resume=user_input), config)
+
+    return agent.get_state(config).values
+
+
+def _stream(inputs_or_cmd, config: dict) -> None:
+    """Stream graph events and print assistant messages as they arrive."""
+    for event in agent.stream(inputs_or_cmd, config, stream_mode="values"):
+        messages = event.get("messages", [])
+        if not messages:
+            continue
+        last = messages[-1]
+        content = last.get("content") if isinstance(last, dict) else getattr(last, "content", None)
+        role    = last.get("role")    if isinstance(last, dict) else getattr(last, "type",    None)
+        if content and role in ("assistant", "ai"):
+            print(f"\n{content}")
 
 
 if __name__ == "__main__":
-
     result = run_agent(
         "Find open houses in Redmond WA this Saturday. "
         "I'll leave home at 9am from 500 108th Ave NE, Bellevue WA. "
         "Looking for 3+ bed houses or condos under $1.5M, built after 1980."
     )
-
     print("\nFinal state keys:", list(result.keys()))

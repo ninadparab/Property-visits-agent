@@ -1,9 +1,10 @@
 # agent/nodes.py
 
 from datetime import datetime
-from typing import TypedDict
 
+from pydantic import BaseModel, Field
 from langchain_anthropic import ChatAnthropic
+from langgraph.types import interrupt
 
 from state import AgentState
 from redfin_tool import scrape_open_houses
@@ -11,53 +12,65 @@ from google_maps_tool import build_travel_time_matrix
 from scheduler_tool import schedule_open_house_visits
 
 
-# ── TypedDict schema for LLM structured extraction ───────────────────────────
-# total=False makes all keys optional — user may not mention every field.
-# Field descriptions live in the system prompt since TypedDict has no Field().
+# ── Pydantic models for LLM structured extraction ────────────────────────────
+# Field() descriptions are sent to Claude as part of the JSON schema —
+# no need to repeat them in the system prompt.
 
-class _ParsedInput(TypedDict, total=False):
-    user_location:  str
-    city:           str
-    state:          str
-    time_per_house: int
-    start_time:     str
-    property_types: list[str]
-    min_price:      int
-    max_price:      int
-    min_beds:       int
-    max_beds:       int
-    min_baths:      float
-    max_baths:      float
-    min_year_built: int
-    max_year_built: int
-    min_sqft:       int
-    max_sqft:       int
+class _Filters(BaseModel):
+    property_types: list[str] | None = Field(None, description="Property types to include: house, condo, townhouse, land, other")
+    min_price:      int   | None     = Field(None, description="Minimum listing price in dollars")
+    max_price:      int   | None     = Field(None, description="Maximum listing price in dollars")
+    min_beds:       int   | None     = Field(None, description="Minimum number of bedrooms")
+    max_beds:       int   | None     = Field(None, description="Maximum number of bedrooms")
+    min_baths:      float | None     = Field(None, description="Minimum number of bathrooms e.g. 1.5")
+    max_baths:      float | None     = Field(None, description="Maximum number of bathrooms")
+    min_year_built: int   | None     = Field(None, description="Earliest year the property was built")
+    max_year_built: int   | None     = Field(None, description="Latest year the property was built")
+    min_sqft:       int   | None     = Field(None, description="Minimum square footage")
+    max_sqft:       int   | None     = Field(None, description="Maximum square footage")
 
 
-_FILTER_KEYS = {
-    "property_types", "min_price", "max_price",
-    "min_beds", "max_beds", "min_baths", "max_baths",
-    "min_year_built", "max_year_built", "min_sqft", "max_sqft",
-}
+class _ParsedInput(BaseModel):
+    user_location:  str | None = Field(None, description="User's full home address including street, city, and state")
+    city:           str | None = Field(None, description="City to search for open houses")
+    state:          str | None = Field(None, description="Two-letter US state abbreviation e.g. WA, CA")
+    time_per_house: int        = Field(30,   description="Minutes to spend at each property, default 30")
+    start_time:     str | None = Field(None, description="ISO-8601 departure time from home e.g. 2025-05-17T09:00:00. Infer the actual date when user says Saturday, Sunday, or this weekend.")
+    filters:        _Filters   = Field(default_factory=_Filters)
 
-_SYSTEM_PROMPT = """You are a data extraction assistant. Extract open house visit \
-planning details from the user message and return them as a structured object. \
-Only include fields that are explicitly mentioned — omit everything else.
 
-Field definitions:
-- user_location: Full home address (street number, street, city, state)
-- city: City to search for open houses
-- state: Two-letter US state abbreviation e.g. WA, CA
-- time_per_house: Minutes to spend at each property (default 30 if not mentioned)
-- start_time: ISO-8601 departure time from home e.g. 2025-05-17T09:00:00. \
-Today is {today}. If the user says "Saturday" or "this weekend" compute the \
-upcoming Saturday's date. If "Sunday", use the upcoming Sunday.
-- property_types: List from: house, condo, townhouse, land, other
-- min_beds / max_beds: Bedroom count (integers)
-- min_price / max_price: Price in dollars (integers, no commas or $ signs)
-- min_baths / max_baths: Bathroom count (floats e.g. 1.5)
-- min_year_built / max_year_built: Year as integer
-- min_sqft / max_sqft: Square footage as integer"""
+_SYSTEM_PROMPT = (
+    "Extract open house visit planning details from the user message. "
+    "Today is {today}. Only populate fields explicitly mentioned by the user."
+)
+
+
+class _FeedbackResult(BaseModel):
+    action: str = Field(description=(
+        "What the user wants to change: "
+        "'filters' if property type, price, beds, baths, sqft, or year built changed; "
+        "'time' if departure time or minutes per visit changed; "
+        "'location' if home address changed; "
+        "'restart' to start completely over with a new request; "
+        "'done' if the user is satisfied and wants to exit"
+    ))
+    # Filter changes — used when action='filters'
+    property_types: list[str] | None = Field(None, description="Updated property types")
+    min_price:      int   | None     = Field(None, description="Updated min price in dollars")
+    max_price:      int   | None     = Field(None, description="Updated max price in dollars")
+    min_beds:       int   | None     = Field(None, description="Updated min bedrooms")
+    max_beds:       int   | None     = Field(None, description="Updated max bedrooms")
+    min_baths:      float | None     = Field(None, description="Updated min bathrooms")
+    max_baths:      float | None     = Field(None, description="Updated max bathrooms")
+    min_year_built: int   | None     = Field(None, description="Updated min year built")
+    max_year_built: int   | None     = Field(None, description="Updated max year built")
+    min_sqft:       int   | None     = Field(None, description="Updated min sqft")
+    max_sqft:       int   | None     = Field(None, description="Updated max sqft")
+    # Time changes — used when action='time'
+    new_start_time:     str | None   = Field(None, description="New ISO-8601 departure time e.g. 2025-05-17T10:00:00")
+    new_visit_duration: int | None   = Field(None, description="New minutes per visit")
+    # Location change — used when action='location'
+    new_home_address:   str | None   = Field(None, description="New full home address")
 
 
 def parse_node(state: AgentState) -> dict:
@@ -73,18 +86,19 @@ def parse_node(state: AgentState) -> dict:
     today = datetime.now().strftime("%Y-%m-%d")
     llm = ChatAnthropic(model="claude-haiku-4-5-20251001").with_structured_output(_ParsedInput)
 
-    parsed: _ParsedInput = llm.invoke([
+    result: _ParsedInput = llm.invoke([
         {"role": "system", "content": _SYSTEM_PROMPT.format(today=today)},
         {"role": "user",   "content": raw},
     ])
 
     updates: dict = {}
-    for key in ("user_location", "city", "state", "time_per_house", "start_time"):
-        if key in parsed:
-            updates[key] = parsed[key]
+    if result.user_location:  updates["user_location"]  = result.user_location
+    if result.city:           updates["city"]            = result.city
+    if result.state:          updates["state"]           = result.state
+    if result.start_time:     updates["start_time"]      = result.start_time
+    updates["time_per_house"] = result.time_per_house
 
-    # Collect all filter fields into the filters dict
-    filters = {k: parsed[k] for k in _FILTER_KEYS if k in parsed}
+    filters = result.filters.model_dump(exclude_none=True)
     if filters:
         updates["filters"] = filters
 
@@ -147,8 +161,8 @@ def scraper_node(state: AgentState) -> dict:
         return {"error": houses[0]["error"], "next_step": "end"}
 
     if not houses:
-        return {"error": "No open houses found matching your filters",
-                "next_step": "end"}
+        # Route to filter_update so the user can relax filters interactively
+        return {"next_step": "filter_update"}
 
     return {"open_houses": houses, "next_step": "distance"}
 
@@ -256,3 +270,93 @@ def output_node(state: AgentState) -> dict:
         output = "\n".join(lines)
 
     return {"messages": [{"role": "assistant", "content": output}]}
+
+
+def filter_update_node(state: AgentState) -> dict:
+    """
+    Mid-flow human input: pauses when scraper returns 0 results and asks
+    the user to relax their filters. Loops back to scraper on retry.
+    Reads:  city, state, filters
+    Writes: filters, next_step
+    """
+    current = state.get("filters", {})
+    question = (
+        f"No open houses found in {state.get('city')}, {state.get('state')} "
+        f"with your current filters: {current or 'none'}.\n"
+        "What would you like to change? "
+        "(e.g. 'increase max price to $2M', 'remove the year built filter', 'try condos too')\n"
+        "Or say 'stop' to exit."
+    )
+
+    user_response = interrupt(question)
+
+    if user_response.strip().lower() in ("stop", "exit", "quit", "no"):
+        return {"error": "No matching open houses found.", "next_step": "end"}
+
+    llm = ChatAnthropic(model="claude-haiku-4-5-20251001").with_structured_output(_Filters)
+    updated: _Filters = llm.invoke([
+        {"role": "system", "content": (
+            f"The user wants to update their open house search filters. "
+            f"Current filters: {current}. "
+            "Extract only the fields they mentioned changing. Omit everything else."
+        )},
+        {"role": "user", "content": user_response},
+    ])
+
+    merged = {**current, **updated.model_dump(exclude_none=True)}
+    return {"filters": merged, "next_step": "scrape"}
+
+
+def feedback_node(state: AgentState) -> dict:
+    """
+    Multi-turn state update: pauses after output and asks the user if they
+    want to change anything. Routes back to the right node based on what changed.
+    Reads:  schedules, unschedulable
+    Writes: varies by action (filters / start_time / user_location / next_step)
+    """
+    question = (
+        "Would you like to change anything?\n"
+        "  • Filters   — e.g. 'remove condos', 'max price $2M'\n"
+        "  • Timing    — e.g. 'start at 10am', '45 minutes per house'\n"
+        "  • Location  — e.g. 'leave from downtown Seattle instead'\n"
+        "  • 'restart' — start over with a new search\n"
+        "  • 'done'    — exit\n"
+    )
+
+    user_response = interrupt(question)
+
+    if user_response.strip().lower() in ("done", "exit", "quit", "no", "looks good", "thanks"):
+        return {"next_step": "end"}
+
+    llm = ChatAnthropic(model="claude-haiku-4-5-20251001").with_structured_output(_FeedbackResult)
+    result: _FeedbackResult = llm.invoke([
+        {"role": "system", "content": (
+            f"The user has seen their open house schedule and wants to make changes. "
+            f"Current state — city: {state.get('city')}, filters: {state.get('filters', {})}, "
+            f"start_time: {state.get('start_time')}, home: {state.get('user_location')}. "
+            "Parse what they want to change."
+        )},
+        {"role": "user", "content": user_response},
+    ])
+
+    updates: dict = {"next_step": result.action}
+
+    if result.action == "filters":
+        filter_changes = result.model_dump(
+            include={"property_types","min_price","max_price","min_beds","max_beds",
+                     "min_baths","max_baths","min_year_built","max_year_built","min_sqft","max_sqft"},
+            exclude_none=True,
+        )
+        updates["filters"] = {**state.get("filters", {}), **filter_changes}
+
+    elif result.action == "time":
+        if result.new_start_time:
+            updates["start_time"] = result.new_start_time
+        if result.new_visit_duration:
+            updates["time_per_house"] = result.new_visit_duration
+
+    elif result.action == "location":
+        if result.new_home_address:
+            updates["user_location"] = result.new_home_address
+
+    return updates
