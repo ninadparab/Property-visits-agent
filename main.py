@@ -62,9 +62,9 @@ def _stream(inputs_or_cmd, config: dict) -> None:
 
 
 if __name__ == "__main__":
-    result = run_agent(
-        "Find open houses in Redmond WA this Saturday. "
-        "I'll leave home at 9am from 500 108th Ave NE, Bellevue WA. "
-        "Looking for 3+ bed houses or condos under $1.5M, built after 1980."
-    )
-    print("\nFinal state keys:", list(result.keys()))
+    print("Open House Visit Planner")
+    print("Example: 'Find open houses in Redmond WA this Saturday. I'll leave at 9am from 500 108th Ave NE Bellevue WA. 3+ beds under $1.5M.'")
+    print()
+    user_message = input("You: ").strip()
+    if user_message:
+        run_agent(user_message)
