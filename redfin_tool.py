@@ -100,11 +100,22 @@ def _build_listing_url(region_id: str, state: str, city: str, property_types: li
     return f"{base}/filter/{','.join(parts)}" if parts else base
 
 
-def _ms_to_iso(ms: int | None, tz_name: str = "US/Pacific") -> str | None:
+# Legacy POSIX names Redfin uses → canonical IANA names
+_TZ_ALIASES = {
+    "US/Pacific":   "America/Los_Angeles",
+    "US/Mountain":  "America/Denver",
+    "US/Central":   "America/Chicago",
+    "US/Eastern":   "America/New_York",
+    "US/Alaska":    "America/Anchorage",
+    "US/Hawaii":    "Pacific/Honolulu",
+}
+
+
+def _ms_to_iso(ms: int | None, tz_name: str = "America/Los_Angeles") -> str | None:
     """Convert a Unix-millisecond UTC timestamp to a naive ISO string in the property's timezone."""
     if not ms:
         return None
-    tz = ZoneInfo(tz_name)
+    tz = ZoneInfo(_TZ_ALIASES.get(tz_name, tz_name))
     dt = datetime.fromtimestamp(ms / 1000, tz=timezone.utc).astimezone(tz)
     return dt.strftime("%Y-%m-%dT%H:%M:%S")
 
@@ -245,7 +256,7 @@ def scrape_open_houses(
         if min_sqft       is not None and sqft       is not None and sqft < min_sqft:            continue
         if max_sqft       is not None and sqft       is not None and sqft > max_sqft:            continue
 
-        tz_name = h.get("timeZone", "US/Pacific")
+        tz_name = h.get("timeZone", "America/Los_Angeles")
         results.append({
             "address":          _get(h, "streetLine", "value") or "",
             "city":             h.get("city", city),
