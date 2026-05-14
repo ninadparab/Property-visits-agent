@@ -3,7 +3,8 @@ import json
 import time
 import random
 import re
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 from langchain_core.tools import tool
@@ -99,11 +100,13 @@ def _build_listing_url(region_id: str, state: str, city: str, property_types: li
     return f"{base}/filter/{','.join(parts)}" if parts else base
 
 
-def _ms_to_iso(ms: int | None) -> str | None:
-    """Convert Unix milliseconds timestamp to local ISO 8601 datetime string."""
+def _ms_to_iso(ms: int | None, tz_name: str = "US/Pacific") -> str | None:
+    """Convert a Unix-millisecond UTC timestamp to a naive ISO string in the property's timezone."""
     if not ms:
         return None
-    return datetime.fromtimestamp(ms / 1000).strftime("%Y-%m-%dT%H:%M:%S")
+    tz = ZoneInfo(tz_name)
+    dt = datetime.fromtimestamp(ms / 1000, tz=timezone.utc).astimezone(tz)
+    return dt.strftime("%Y-%m-%dT%H:%M:%S")
 
 
 def _get(obj: dict, *keys, default=None):
@@ -242,6 +245,7 @@ def scrape_open_houses(
         if min_sqft       is not None and sqft       is not None and sqft < min_sqft:            continue
         if max_sqft       is not None and sqft       is not None and sqft > max_sqft:            continue
 
+        tz_name = h.get("timeZone", "US/Pacific")
         results.append({
             "address":          _get(h, "streetLine", "value") or "",
             "city":             h.get("city", city),
@@ -252,8 +256,8 @@ def scrape_open_houses(
             "baths":            baths,
             "sqft":             sqft,
             "year_built":       year_built,
-            "open_house_start": _ms_to_iso(h.get("openHouseStart")),
-            "open_house_end":   _ms_to_iso(h.get("openHouseEnd")),
+            "open_house_start": _ms_to_iso(h.get("openHouseStart"), tz_name),
+            "open_house_end":   _ms_to_iso(h.get("openHouseEnd"),   tz_name),
             "latitude":         _get(h, "latLong", "value", "latitude"),
             "longitude":        _get(h, "latLong", "value", "longitude"),
             "url":              "https://www.redfin.com" + h.get("url", ""),
