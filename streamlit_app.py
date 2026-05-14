@@ -1,3 +1,4 @@
+import os
 import uuid
 import streamlit as st
 from dotenv import load_dotenv
@@ -5,7 +6,12 @@ from langgraph.types import Command
 from langgraph.checkpoint.memory import MemorySaver
 from graph import build_graph
 
-load_dotenv()
+load_dotenv()  # local .env
+
+# On Streamlit Cloud .env is not deployed — pull secrets from st.secrets instead
+for _key in ["ANTHROPIC_API_KEY", "GOOGLE_MAPS_API_KEY"]:
+    if _key in st.secrets:
+        os.environ[_key] = st.secrets[_key]
 
 st.set_page_config(page_title="Open House Planner", page_icon="🏠", layout="wide")
 st.title("🏠 Open House Visit Planner")
@@ -33,30 +39,39 @@ with st.sidebar:
     city       = st.selectbox("City", CITIES, index=CITIES.index("Redmond"))
     home_addr  = st.text_input("Your home address", placeholder="500 108th Ave NE, Bellevue WA 98004")
     visit_day  = st.selectbox("Visit day", ["This Saturday", "This Sunday"])
-    start_hr   = st.selectbox("Depart at", ["8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM"], index=1)
-    min_beds   = st.selectbox("Min bedrooms", [2, 3, 4, 5], index=1)
-    max_price  = st.select_slider(
-        "Max price",
-        options=[500_000, 750_000, 1_000_000, 1_250_000, 1_500_000, 2_000_000, 3_000_000],
-        value=1_500_000,
-        format_func=lambda v: f"${v:,}",
+    start_hr   = st.selectbox(
+        "Depart at",
+        ["8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM",
+         "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM"],
+        index=1,
     )
+    min_beds   = st.selectbox("Min bedrooms", [2, 3, 4, 5], index=1)
+    PRICE_OPTIONS = [0, 250_000, 500_000, 750_000, 1_000_000, 1_250_000,
+                     1_500_000, 2_000_000, 3_000_000]
+    price_range = st.select_slider(
+        "Price range",
+        options=PRICE_OPTIONS,
+        value=(500_000, 1_500_000),
+        format_func=lambda v: "No min" if v == 0 else f"${v:,}",
+    )
+    min_price, max_price = price_range
     prop_types = st.multiselect(
         "Property types",
         ["house", "condo", "townhouse"],
         default=["house", "condo", "townhouse"],
     )
-    mins_per   = st.selectbox("Minutes per visit", [20, 30, 45, 60], index=1)
+    mins_per   = st.number_input("Minutes per visit", min_value=10, max_value=120, value=30, step=5)
 
     if st.button("Search", type="primary", use_container_width=True):
         if not home_addr.strip():
             st.error("Enter your home address first.")
         else:
-            types_str = ", ".join(prop_types) if prop_types else "house, condo, or townhouse"
+            types_str   = ", ".join(prop_types) if prop_types else "house, condo, or townhouse"
+            min_price_str = f"min ${min_price:,}, " if min_price > 0 else ""
             st.session_state.pending = (
                 f"Find open houses in {city}, WA {visit_day.lower()}. "
                 f"I'll leave at {start_hr} from {home_addr.strip()}. "
-                f"{min_beds}+ beds, max ${max_price:,}, {types_str}. "
+                f"{min_beds}+ beds, {min_price_str}max ${max_price:,}, {types_str}. "
                 f"Spend {mins_per} minutes at each."
             )
 
